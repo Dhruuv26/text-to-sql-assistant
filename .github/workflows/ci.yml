@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build image
         run: docker build -t text2sql:ci .
-      - name: Smoke test (no model server: health must answer, asking must fail cleanly)
+      - name: "Smoke test (no model server; health must answer, asking must fail cleanly)"
         run: |
           docker run -d --name t2s -p 8000:8000 text2sql:ci
           for i in $(seq 1 30); do curl -sf localhost:8000/api/health && break; sleep 1; done
