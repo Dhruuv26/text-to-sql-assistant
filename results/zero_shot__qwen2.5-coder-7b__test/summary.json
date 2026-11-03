@@ -1,0 +1,105 @@
+{
+  "approach": "zero_shot",
+  "model": "qwen2.5-coder:7b",
+  "split": "test",
+  "n": 92,
+  "execution_accuracy": 71.7,
+  "exact_match": 25.0,
+  "valid_sql_rate": 90.2,
+  "guardrail_block_rate": 0.0,
+  "latency_ms": {
+    "mean": 3170.0,
+    "p50": 2894.8,
+    "p95": 4032.1
+  },
+  "by_difficulty": {
+    "easy": {
+      "n": 19,
+      "execution_accuracy": 94.7
+    },
+    "hard": {
+      "n": 36,
+      "execution_accuracy": 47.2
+    },
+    "medium": {
+      "n": 37,
+      "execution_accuracy": 83.8
+    }
+  },
+  "by_category": {
+    "aggregate": {
+      "n": 7,
+      "execution_accuracy": 100.0
+    },
+    "compare": {
+      "n": 1,
+      "execution_accuracy": 100.0
+    },
+    "cte": {
+      "n": 4,
+      "execution_accuracy": 50.0
+    },
+    "date": {
+      "n": 4,
+      "execution_accuracy": 75.0
+    },
+    "filter": {
+      "n": 8,
+      "execution_accuracy": 87.5
+    },
+    "group": {
+      "n": 8,
+      "execution_accuracy": 62.5
+    },
+    "having": {
+      "n": 4,
+      "execution_accuracy": 75.0
+    },
+    "join": {
+      "n": 11,
+      "execution_accuracy": 81.8
+    },
+    "negation": {
+      "n": 3,
+      "execution_accuracy": 100.0
+    },
+    "nested": {
+      "n": 14,
+      "execution_accuracy": 50.0
+    },
+    "selfjoin": {
+      "n": 2,
+      "execution_accuracy": 0.0
+    },
+    "setop": {
+      "n": 3,
+      "execution_accuracy": 66.7
+    },
+    "string": {
+      "n": 4,
+      "execution_accuracy": 100.0
+    },
+    "subquery": {
+      "n": 4,
+      "execution_accuracy": 75.0
+    },
+    "topn": {
+      "n": 10,
+      "execution_accuracy": 80.0
+    },
+    "window": {
+      "n": 5,
+      "execution_accuracy": 40.0
+    }
+  },
+  "failures": {
+    "wrong_aggregation": 10,
+    "hallucinated_column": 6,
+    "wrong_filter": 3,
+    "other_wrong_result": 3,
+    "syntax_error": 1,
+    "hallucinated_table": 1,
+    "db_error_other": 1,
+    "wrong_join_or_table": 1
+  }
+}

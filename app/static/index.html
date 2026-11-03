@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ask the Chinook database</title>
+  <meta name="description" content="Ask questions about a music-store database in English. See the SQL, the checks it passed, and the rows it returned.">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <a class="skip" href="#question">Skip to the question box</a>
+  <div class="page">
+    <header class="masthead">
+      <h1>Ask the Chinook database</h1>
+      <p class="lede">Type a question in English. You will see the SQL the model wrote, the checks that SQL passed, and the rows it returned.</p>
+      <p id="banner" class="banner" role="status" hidden></p>
+    </header>
+
+    <main>
+      <form id="ask-form" class="ask" autocomplete="off">
+        <label for="question">Your question</label>
+        <textarea id="question" name="question" rows="2" maxlength="400" required
+                  placeholder="Which five customers spent the most?"></textarea>
+        <div class="ask-row">
+          <button type="submit" id="submit">Ask</button>
+          <details class="options">
+            <summary>Options</summary>
+            <label for="approach">How the model is prompted</label>
+            <select id="approach" name="approach">
+              <option value="">Default (recommended)</option>
+              <option value="zero_shot">Schema only</option>
+              <option value="shots_only">Schema and similar examples</option>
+              <option value="fewshot">Notes, rules and similar examples</option>
+              <option value="docs">Notes and rules</option>
+            </select>
+          </details>
+          <span id="status" class="status" role="status"></span>
+        </div>
+        <div class="examples">
+          <p id="examples-h">Or start from an example</p>
+          <ul id="examples" aria-labelledby="examples-h"></ul>
+        </div>
+      </form>
+
+      <section id="answer" class="answer" aria-live="polite" aria-label="Answer"></section>
+    </main>
+
+    <aside class="schema" aria-labelledby="schema-h">
+      <h2 id="schema-h">What is in the database</h2>
+      <p class="muted">A digital music store: artists, albums and tracks, plus the customers, employees and invoices behind the sales. Open a table to see its columns.</p>
+      <div id="schema"></div>
+    </aside>
+
+    <footer>
+      <p>This is a read-only copy of the public Chinook sample database. Every query is parsed and checked before it runs: one SELECT statement, known tables only, a five-second limit and at most 200 rows. The model can be wrong, so read the SQL before trusting a result.</p>
+    </footer>
+  </div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

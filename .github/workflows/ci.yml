@@ -1,0 +1,35 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip, cache-dependency-path: requirements-dev.txt }
+      - run: pip install -r requirements-dev.txt
+      - name: Lint
+        run: ruff check .
+      - name: Tests (guardrails, harness self-tests, API)
+        run: pytest -q
+      - name: Gold set still valid against the database
+        run: python -m eval.build_gold
+
+  docker:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t text2sql:ci .
+      - name: Smoke test (no model server: health must answer, asking must fail cleanly)
+        run: |
+          docker run -d --name t2s -p 8000:8000 text2sql:ci
+          for i in $(seq 1 30); do curl -sf localhost:8000/api/health && break; sleep 1; done
+          curl -sf localhost:8000/api/health | grep '"status":"ok"'
+          curl -sf localhost:8000/ | grep "Ask the Chinook database"
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST localhost:8000/api/ask -H 'content-type: application/json' -d '{"question":"CI smoke test question that is never saved"}')
+          test "$code" = "503"

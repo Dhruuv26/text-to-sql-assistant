@@ -1,0 +1,37 @@
+# docker compose up --build        (first start downloads the model; watch: docker compose logs -f model-pull)
+# Open http://localhost:8000
+# GPU: uncomment the "deploy" block on the ollama service (needs the NVIDIA container toolkit).
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes: ["ollama:/root/.ollama"]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - { driver: nvidia, count: all, capabilities: [gpu] }
+
+  model-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama: { condition: service_healthy }
+    environment: { OLLAMA_HOST: "http://ollama:11434" }
+    entrypoint: ["ollama", "pull", "${MODEL:-qwen2.5-coder:7b}"]
+    restart: "no"
+
+  app:
+    build: .
+    depends_on: [ollama]
+    environment:
+      OLLAMA_HOST: "http://ollama:11434"
+      MODEL: "${MODEL:-qwen2.5-coder:7b}"
+      DEFAULT_APPROACH: "${DEFAULT_APPROACH:-self_correct}"
+    ports: ["8000:8000"]
+
+volumes:
+  ollama: {}

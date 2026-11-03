@@ -1,0 +1,25 @@
+# Single-container, CPU-only image for a free Hugging Face Docker Space (see docs/DEPLOY.md). TEMPLATE: verify with
+# `docker build -f deploy/Dockerfile.space -t t2s-space .` before pushing.
+FROM ollama/ollama:latest
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /srv
+COPY requirements.txt .
+RUN python3 -m venv /opt/venv && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+
+# Bake the model into the image so cold starts do not download gigabytes.
+ENV OLLAMA_MODELS=/models MODEL=qwen2.5-coder:3b OLLAMA_HOST=http://127.0.0.1:11434
+RUN mkdir -p /models && (ollama serve >/dev/null 2>&1 & pid=$!; sleep 8; ollama pull "$MODEL"; kill $pid; sleep 2)
+
+COPY app ./app
+COPY guardrails ./guardrails
+COPY data ./data
+COPY deploy/start.sh ./start.sh
+RUN chmod +x start.sh && useradd -m -u 1000 user && chown -R user /models /srv
+USER user
+ENV PATH="/opt/venv/bin:$PATH" HOME=/home/user TRUST_PROXY=1 DEFAULT_APPROACH=zero_shot \
+    MAX_CONCURRENT=1 LLM_TIMEOUT_S=120 QUEUE_WAIT_S=60 RATE_PER_MINUTE=4 RATE_PER_DAY=100 OLLAMA_NUM_PARALLEL=1
+EXPOSE 7860
+ENTRYPOINT []
+CMD ["/srv/start.sh"]
