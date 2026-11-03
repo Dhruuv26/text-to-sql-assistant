@@ -1,0 +1,31 @@
+# Manual check of the Hugging Face Space image (CPU, model baked in). Run from the Actions tab: "Space image (manual)" > Run workflow.
+name: Space image (manual)
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the Space image (downloads the model, takes several minutes)
+        run: docker build -f deploy/Dockerfile.space -t t2s-space .
+      - name: Start the container
+        run: docker run -d --name space -p 7860:7860 t2s-space
+      - name: Wait until the model server is ready
+        run: |
+          for i in $(seq 1 120); do
+            if curl -sf localhost:7860/api/health | grep -q '"llm_ready":true'; then exit 0; fi
+            sleep 2
+          done
+          docker logs space
+          exit 1
+      - name: Ask one live question on CPU
+        run: |
+          curl -sf --max-time 400 -X POST localhost:7860/api/ask -H 'content-type: application/json' \
+            -d '{"question":"How many albums does the artist Iron Maiden have?","approach":"zero_shot"}' | tee out.json
+          grep -q '"ok":true' out.json
+      - name: Show container logs if anything failed
+        if: failure()
+        run: docker logs space

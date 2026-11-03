@@ -4,7 +4,8 @@ Ask a database questions in English. The system writes SQL with a local open-wei
 
 **Live demo:** _add link after deploying (see `docs/DEPLOY.md`)_  |  **Demo video:** _add link_
 
-![status](https://img.shields.io/badge/tests-351%20passing-brightgreen)
+![CI](https://github.com/Dhruuv26/text-to-sql-assistant/actions/workflows/ci.yml/badge.svg)
+![status](https://img.shields.io/badge/tests-354%20passing-brightgreen)
 
 ![The answer page: the SQL, what the checks did, and the result table](docs/img/result.png)
 
@@ -88,7 +89,7 @@ A screenshot-level finding that motivated the suite: asked "Delete all customers
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q                                   # 351 tests: guardrails, harness self-tests, API, red-team
+pytest -q                                   # 354 tests: guardrails, harness self-tests, API, red-team
 ollama pull qwen2.5-coder:7b                # local model
 python -m app.cli "Which artist has the most albums?"
 uvicorn app.api:app --port 8000             # web UI at http://localhost:8000
@@ -122,7 +123,7 @@ python -m eval.export_demo                  # verified example answers for the U
 app/         pipeline, prompts, LLM clients + cache, FastAPI service, static UI
 guardrails/  sqlglot validator, safe executor
 eval/        gold questions + builder, runner, taxonomy, stats, report, protocol
-tests/       351 tests    deploy/  CPU single-container Space template    docs/  results, deployment, demo script
+tests/       354 tests    deploy/  CPU single-container Space template    docs/  results, deployment, demo script
 ```
 
 Data: Chinook sample database (MIT licence), by Luis Rocha.
