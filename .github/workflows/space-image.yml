@@ -28,4 +28,4 @@ jobs:
           grep -q '"ok":true' out.json
       - name: Show container logs if anything failed
         if: failure()
-        run: docker logs space
+        run: docker logs space || echo "no container (the image did not build or start)"
