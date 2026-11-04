@@ -1,1 +1,50 @@
-[]
+[
+  {
+    "question": "How many tracks have never been sold?",
+    "sql": "SELECT COUNT(TrackId) FROM Track WHERE TrackId NOT IN (SELECT TrackId FROM InvoiceLine)",
+    "category": "negation",
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the second highest invoice total?",
+    "sql": "SELECT MAX(Total) FROM Invoice WHERE Total < (SELECT MAX(Total) FROM Invoice)",
+    "category": "subquery",
+    "difficulty": "medium"
+  },
+  {
+    "question": "What is the total invoice revenue in March 2023?",
+    "sql": "SELECT SUM(Total) FROM Invoice WHERE strftime('%Y-%m', InvoiceDate) = '2023-03'",
+    "category": "date",
+    "difficulty": "medium"
+  },
+  {
+    "question": "List the titles of all albums by the artist 'AC/DC'.",
+    "sql": "SELECT Album.Title FROM Album JOIN Artist ON Artist.ArtistId = Album.ArtistId WHERE Artist.Name = 'AC/DC'",
+    "category": "join",
+    "difficulty": "medium"
+  },
+  {
+    "question": "List the titles of albums whose title contains 'Greatest Hits'.",
+    "sql": "SELECT Title FROM Album WHERE Title LIKE '%Greatest Hits%'",
+    "category": "string",
+    "difficulty": "medium"
+  },
+  {
+    "question": "How many tracks are in each genre? Return genre name and track count.",
+    "sql": "SELECT Genre.Name, COUNT(Track.TrackId) FROM Genre JOIN Track ON Track.GenreId = Genre.GenreId GROUP BY Genre.GenreId, Genre.Name",
+    "category": "group",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which artist has the most albums? Return artist name and album count.",
+    "sql": "SELECT Artist.Name, COUNT(DISTINCT Album.AlbumId) AS AlbumCount FROM Artist JOIN Album ON Album.ArtistId = Artist.ArtistId GROUP BY Artist.ArtistId, Artist.Name ORDER BY AlbumCount DESC LIMIT 1",
+    "category": "topn",
+    "difficulty": "medium"
+  },
+  {
+    "question": "Which albums have more than 20 tracks? Return album title and track count.",
+    "sql": "SELECT Album.Title, COUNT(Track.TrackId) FROM Album JOIN Track ON Track.AlbumId = Album.AlbumId GROUP BY Album.AlbumId, Album.Title HAVING COUNT(Track.TrackId) > 20",
+    "category": "having",
+    "difficulty": "medium"
+  }
+]

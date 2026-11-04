@@ -11,6 +11,8 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.11", cache: pip, cache-dependency-path: requirements-dev.txt }
       - run: pip install -r requirements-dev.txt
+      - name: Install jsdom (simulated browser for the UI test)
+        run: npm install --no-save jsdom
       - name: Lint
         run: ruff check .
       - name: Tests (guardrails, harness self-tests, API)

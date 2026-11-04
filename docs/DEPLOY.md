@@ -1,43 +1,48 @@
-# Deploying a public demo
+# Publishing and running it
 
-The expensive part is the language model; the database is a 1 MB SQLite file. Everything below uses free, public components and needs **no API keys**.
+## What "public demo" can honestly mean here
 
-## Choose where the model runs
+The expensive part is the language model; the database is a 1 MB SQLite file. **No free host can run the model.** Hugging Face moved Docker and Gradio Spaces on its free CPU tier behind a paid plan in July 2026 (only Static Spaces remain free), and other free web hosts have far too little memory for even a 3B model.
 
-| Option | Cost | Speed | Notes |
+So there are three ways to run this project, and the README says which one you are looking at:
+
+| Mode | Cost | New questions? | How |
 |---|---|---|---|
-| **Your own machine** (Docker Compose, GPU) | free | ~3 s per question (RTX 4060, 7B) | Best accuracy; use for the demo video and screenshots. Not a stable public link. |
-| **Hugging Face Docker Space, CPU, 3B model baked in** | free, no card | slow (see below) | A stable public link. Use `zero_shot`, saved example answers, and a strict rate limit. |
-| **Oracle Cloud "Always Free" ARM VM** (4 cores, 24 GB) | free, needs a card for sign-up verification | slow on CPU | Fits a 7B model; same CPU-latency caveat. |
+| **Replay site** (GitHub Pages) | free, no card, no keys | no: saved answers only | section 1 |
+| **Live, on your own machine** | free | yes (~3 s on an RTX 4060, 7B) | section 2 |
+| **Live, public** | paid (see section 3) | yes, slowly on CPU | section 3 |
 
-**Be realistic about CPU latency.** A free CPU host reads a prompt at a few tens of tokens per second. The `zero_shot` prompt (~700 tokens) plus a 3B model typically takes tens of seconds per question; the `self_correct` prompt (~1,800 tokens) several times that. That is why the Space template defaults to `zero_shot`, queues one request at a time, rate-limits hard, and relies on **saved example answers** (served instantly, still validated by the guardrails) so a visitor sees a working product in one click even when the model is slow.
+## 1. Replay site on GitHub Pages (the public link)
 
-## 1. Run locally with Docker (recommended first test)
+A static copy of the same UI. It replays real recorded answers: the SQL was written by the model in real runs, and the result tables are produced by running that SQL on the real database through the same guardrails. It also shows what the checks block, using the model's own attempts from the red-team run. Typing a new question gets a clear message that this page is a replay.
+
+1. Create the saved answers (once, after the evaluation has run): `python -m eval.export_demo`, and commit `app/demo_answers.json` and `results/`.
+2. In the GitHub repo: **Settings > Pages > Build and deployment > Source: GitHub Actions**.
+3. Push to `main`. The **Pages** workflow builds `site/` with `python -m eval.export_static` and deploys it. The link is `https://<user>.github.io/<repo>/`.
+4. Preview locally: `python -m eval.export_static --out site` then `python -m http.server -d site 8080`.
+
+The build fails on purpose if there are no usable saved examples, so you never publish an empty page.
+
+## 2. Live, on your own machine
 
 ```bash
-docker compose up --build           # open http://localhost:8000
-# GPU: uncomment the `deploy:` block in docker-compose.yml (NVIDIA container toolkit required)
+ollama pull qwen2.5-coder:7b
+uvicorn app.api:app --port 8000          # http://localhost:8000
 ```
-Switch model: `MODEL=qwen2.5-coder:3b docker compose up --build`.
+Or with Docker: `docker compose up --build` (starts Ollama, pulls the model, serves the app; for the GPU, uncomment the `deploy:` block in `docker-compose.yml`). Use this for screenshots and the demo video.
 
-## 2. Create the saved example answers (do this once, on your machine)
+## 3. Live and public (paid or card-required options)
 
-After running the evaluation: `python -m eval.export_demo --model qwen2.5-coder:7b --approach self_correct`. It writes `app/demo_answers.json` with answers the harness scored **correct**, so the example chips are instant and honest. Commit that file.
-
-## 3. Hugging Face Space (free public link)
-
-1. Create a new Space, SDK **Docker**, hardware **CPU basic**.
-2. Clone it, copy this repository into it, and move the Space image file to the root: `cp deploy/Dockerfile.space Dockerfile` (overwrite).
-3. Put this at the very top of the Space's `README.md` (Hugging Face reads it as configuration):
-   ```
-   ---
-   title: Text-to-SQL Assistant
-   sdk: docker
-   app_port: 7860
-   ---
-   ```
-4. Push. The first build downloads the model (a few GB); later starts are fast. Free Spaces sleep after inactivity, so the first visit after a quiet period takes a while: say so in the README.
-5. `deploy/Dockerfile.space` is a **template that has not been run by the author yet**. No local Docker needed to test it: push the repo, open the **Actions** tab, choose **Space image (manual)**, and press **Run workflow**. It builds the image, waits for the model, and asks one live question on a CPU runner; the log shows how long that takes. Locally, the equivalent is: `docker build -f deploy/Dockerfile.space -t t2s-space .` then `docker run -p 7860:7860 t2s-space`. Things to verify: the model is present (`curl localhost:7860/api/health` shows `"llm_ready": true`), and one example answers instantly.
+* **Hugging Face PRO + Docker Space.** `deploy/Dockerfile.space` is a CPU-only single-container image with a 3B model baked in. It is built and exercised by the manual **Space image (manual)** GitHub workflow, which answered a live question in about 11 s on a 4-core runner. The free Space tier has 2 cores, so expect longer. Copy it to `Dockerfile` in the Space repo and add this header to the Space's `README.md`:
+  ```
+  ---
+  title: Text-to-SQL Assistant
+  sdk: docker
+  app_port: 7860
+  ---
+  ```
+* **Oracle Cloud "Always Free" ARM VM** (4 cores, 24 GB, card for verification): run `docker compose up -d` there. CPU-only, so the short `zero_shot` prompt is the practical choice (`DEFAULT_APPROACH=zero_shot`).
+* Either way, keep `RATE_PER_MINUTE`, `MAX_CONCURRENT=1` and saved examples: CPU inference is slow, and the in-memory rate limiter is per process.
 
 ## Configuration (environment variables)
 
@@ -46,10 +51,11 @@ After running the evaluation: `python -m eval.export_demo --model qwen2.5-coder:
 | `MODEL` | `qwen2.5-coder:7b` | Ollama model name |
 | `OLLAMA_HOST` | `http://localhost:11434` | Model server |
 | `DEFAULT_APPROACH` | `self_correct` | `zero_shot`, `fewshot`, `self_correct`, `docs`, `shots_only` |
+| `ABORT_ON_UNSAFE` | `1` | Do not retry after a write or disallowed function is rejected |
 | `RATE_PER_MINUTE` / `RATE_PER_DAY` | 10 / 300 | Per-IP limits |
 | `MAX_CONCURRENT` / `QUEUE_WAIT_S` | 1 / 25 | Simultaneous model calls; seconds a request waits for a slot before a 503 |
 | `ROW_LIMIT` / `QUERY_TIMEOUT_S` | 200 / 5 | Result cap; SQL time limit |
 | `TRUST_PROXY` | 0 | Set to 1 behind a reverse proxy so the rate limiter sees the real client IP |
 
 ## Security notes
-The service accepts only free text; model output is never executed without the parser check, the database file is opened read-only, responses carry a strict content-security policy, and the logs record approach, outcome and timing but not question text. There is no authentication; the rate limiter is in memory and per process, which is adequate for a small demo, not for production.
+The service accepts only free text; model output is never executed without the parser check, the database file is opened read-only, responses carry a strict content-security policy, and the logs record approach, outcome and timing but not question text. There is no authentication; the rate limiter is in memory and per process, which is adequate for a small demo, not for production. The replay site has no server at all.

@@ -70,6 +70,24 @@ def _load_demo(path: Path | str) -> list[dict]:
         return []
 
 
+def make_response(*, question: str, approach: str, res, sql: str, tables, attempts: int, source: str, model: str, row_limit: int,
+                  llm_ms: float = 0.0, total_ms: float = 0.0, warnings=None) -> dict:
+    """The JSON shape of /api/ask; shared with the static-site exporter so both render identically."""
+    return {
+        "ok": res.ok, "question": question, "sql": _pretty(res.sql or sql) if (res.sql or sql) else "", "columns": res.columns,
+        "rows": [[_jsonable(v) for v in r] for r in res.rows], "row_count": len(res.rows), "truncated": res.truncated,
+        "row_limit": row_limit, "error": res.error, "code": res.code, "tables": list(tables), "approach": approach,
+        "attempts": attempts, "source": source, "model": model, "llm_ms": round(llm_ms), "exec_ms": round(res.latency_ms),
+        "total_ms": round(total_ms), "warnings": list(warnings or []),
+    }
+
+
+def policy_response(question: str, approach: str, model: str, row_limit: int, total_ms: float = 0.0) -> dict:
+    return {"ok": False, "question": question, "sql": "", "columns": [], "rows": [], "row_count": 0, "truncated": False,
+            "row_limit": row_limit, "error": READ_ONLY_MESSAGE, "code": "read_only", "tables": [], "approach": approach,
+            "attempts": 0, "source": "policy", "model": model, "llm_ms": 0, "exec_ms": 0, "total_ms": round(total_ms), "warnings": []}
+
+
 def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
     st = settings or Settings.from_env()
     llm = llm or OllamaClient(st.model, st.ollama_host, timeout=st.llm_timeout_s)
@@ -128,11 +146,7 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
         verb = write_intent(question)
         if verb:                                                   # clear refusal; the model is never called
             log.info("ask refused read_only verb=%s", verb)
-            return JSONResponse({
-                "ok": False, "question": question, "sql": "", "columns": [], "rows": [], "row_count": 0, "truncated": False,
-                "row_limit": st.row_limit, "error": READ_ONLY_MESSAGE, "code": "read_only", "tables": [], "approach": approach,
-                "attempts": 0, "source": "policy", "model": st.model, "llm_ms": 0, "exec_ms": 0,
-                "total_ms": round((time.perf_counter() - t0) * 1000), "warnings": []})
+            return JSONResponse(policy_response(question, approach, st.model, st.row_limit, (time.perf_counter() - t0) * 1000))
         warnings: list[str] = []
         pre = demo_by_q.get(_norm(question))
         if pre:                                                    # saved, verified answer: SQL still runs through the guardrails
@@ -162,13 +176,9 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
         tables = sorted(validate_sql(sql, t2s.allowed).tables) if sql else []
         total_ms = (time.perf_counter() - t0) * 1000
         log.info("ask approach=%s source=%s ok=%s code=%s total_ms=%.0f", approach, source, res.ok, res.code, total_ms)
-        return JSONResponse({
-            "ok": res.ok, "question": question, "sql": _pretty(res.sql or sql), "columns": res.columns,
-            "rows": [[_jsonable(v) for v in r] for r in res.rows], "row_count": len(res.rows), "truncated": res.truncated,
-            "row_limit": st.row_limit, "error": res.error, "code": res.code, "tables": tables, "approach": approach,
-            "attempts": attempts, "source": source, "model": st.model, "llm_ms": round(llm_ms),
-            "exec_ms": round(res.latency_ms), "total_ms": round(total_ms), "warnings": warnings,
-        })
+        return JSONResponse(make_response(question=question, approach=approach, res=res, sql=sql, tables=tables, attempts=attempts,
+                                          source=source, model=st.model, row_limit=st.row_limit, llm_ms=llm_ms, total_ms=total_ms,
+                                          warnings=warnings))
 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 

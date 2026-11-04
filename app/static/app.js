@@ -30,7 +30,14 @@
 
   let busy = false;
 
+  const STATIC = document.documentElement.dataset.mode === "static";
+  let staticApi = null;
+
   async function api(path, opts) {
+    if (STATIC) {                                   // GitHub Pages replay: no server, answers come from data.json
+      if (!staticApi) staticApi = window.StaticApi.makeStaticApi(await (await fetch("data.json")).json());
+      return staticApi(path, opts);
+    }
     const r = await fetch(path, opts);
     let data = null;
     try { data = await r.json(); } catch (_) { /* non-JSON error body */ }
@@ -84,9 +91,10 @@
       const rows = `${fmt.format(d.row_count)} returned, limit ${fmt.format(d.row_limit)}` + (d.truncated ? " (more rows were cut off)" : "");
       dl.append(receiptRow("Rows", rows));
     }
-    const timing = d.source === "policy" ? `${d.total_ms} ms` : d.source === "saved" ? `database ${d.exec_ms} ms` : `model ${fmt.format(d.llm_ms)} ms, database ${d.exec_ms} ms`;
+    const timing = d.source === "policy" ? `${d.total_ms} ms` : d.source === "recorded" ? "not run" : d.source === "saved" ? `database ${d.exec_ms} ms` : `model ${fmt.format(d.llm_ms)} ms, database ${d.exec_ms} ms`;
     dl.append(receiptRow("Time", timing));
     let from = d.source === "policy" ? "Not sent to the model (read-only policy)"
+      : d.source === "recorded" ? `${d.model}, recorded in the red-team run with the wording check switched off`
       : d.source === "saved" ? "Saved answer, verified correct in evaluation" : `${d.model}, ${d.approach.replace("_", "-")}`;
     if (d.source === "model" && d.attempts > 1) from += `, ${d.attempts} attempts`;
     dl.append(receiptRow("Written by", from));
@@ -198,7 +206,24 @@
         root.append(d);
       });
     }
-    if (hl.ok && hl.data && !hl.data.llm_ready) {
+    if (STATIC) {
+      const bl = await api("/api/blocked");
+      if (bl.ok && bl.data.length) {
+        const ul = $("blocked");
+        bl.data.forEach((q) => {
+          const li = el("li");
+          const b = el("button", "", q);
+          b.type = "button";
+          b.addEventListener("click", () => { $("question").value = q; ask(q); });
+          li.append(b);
+          ul.append(li);
+        });
+        $("blocked-wrap").hidden = false;
+      }
+      const b = $("banner");
+      b.hidden = false;
+      b.textContent = "This page is a replay. The SQL was written by a language model in real runs and the rows come from the real database, but nothing is generated here. To ask your own question, run the app locally (see the README).";
+    } else if (hl.ok && hl.data && !hl.data.llm_ready) {
       const b = $("banner");
       b.hidden = false;
       b.textContent = hl.data.examples_precomputed

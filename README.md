@@ -2,10 +2,10 @@
 
 Ask a database questions in English. The system writes SQL with a local open-weight model, **checks it with a parser before it runs**, executes it on a read-only connection, and shows the SQL, the checks it passed, and the rows. The project's second half is an **evaluation harness** that measures how often the generated SQL is actually right, and a held-out experiment on what helps.
 
-**Live demo:** _add link after deploying (see `docs/DEPLOY.md`)_  |  **Demo video:** _add link_
+**Replay site:** https://dhruuv26.github.io/text-to-sql-assistant/ (saved real answers; it cannot answer new questions, see below)  |  **Demo video:** _add link_
 
 ![CI](https://github.com/Dhruuv26/text-to-sql-assistant/actions/workflows/ci.yml/badge.svg)
-![status](https://img.shields.io/badge/tests-354%20passing-brightgreen)
+![status](https://img.shields.io/badge/tests-365%20passing-brightgreen)
 
 ![The answer page: the SQL, what the checks did, and the result table](docs/img/result.png)
 
@@ -89,7 +89,7 @@ A screenshot-level finding that motivated the suite: asked "Delete all customers
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q                                   # 354 tests: guardrails, harness self-tests, API, red-team
+pytest -q                                   # 365 tests: guardrails, harness self-tests, API, red-team
 ollama pull qwen2.5-coder:7b                # local model
 python -m app.cli "Which artist has the most albums?"
 uvicorn app.api:app --port 8000             # web UI at http://localhost:8000
@@ -113,7 +113,7 @@ python -m eval.export_demo                  # verified example answers for the U
 * Two model sizes from one family, one run each at temperature 0; no seed-variance estimate.
 * The failure taxonomy is rule-based and reports the first problem found, not ground truth.
 * The guardrail parser rejects a rare valid form (`LIMIT <arithmetic with subquery and %> OFFSET ...`), tracked as an xfail test.
-* The free public demo runs a smaller CPU model (see `docs/DEPLOY.md`), so its accuracy is lower than the table above.
+* **The public page is a replay, not a live model.** No free host can run a language model (Hugging Face moved Docker Spaces on its free tier behind a paid plan in July 2026). The page replays real recorded answers, results from the real database, and the guardrail blocks recorded in the red-team run. To ask your own question, run the app locally (`docker compose up --build`, or `uvicorn` with Ollama).
 * There is no abstention: out-of-scope questions get a (usually irrelevant) query rather than "I cannot answer that". The red-team suite counts this.
 * Retrieval of relevant tables and columns was not evaluated: with 11 tables the whole schema fits in the prompt.
 
@@ -123,7 +123,7 @@ python -m eval.export_demo                  # verified example answers for the U
 app/         pipeline, prompts, LLM clients + cache, FastAPI service, static UI
 guardrails/  sqlglot validator, safe executor
 eval/        gold questions + builder, runner, taxonomy, stats, report, protocol
-tests/       354 tests    deploy/  CPU single-container Space template    docs/  results, deployment, demo script
+tests/       365 tests    deploy/  CPU single-container Space template    docs/  results, deployment, demo script
 ```
 
 Data: Chinook sample database (MIT licence), by Luis Rocha.
