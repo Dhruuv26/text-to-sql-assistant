@@ -45,9 +45,30 @@ def _make_authorizer(denied_tables: set[str]):
     return authorizer
 
 
-def connect_readonly(db_path: str | Path, allowed_tables: set[str]) -> sqlite3.Connection:
+HARDEN_LIMITS = {"EXPR_DEPTH": 50, "COMPOUND_SELECT": 5, "LIKE_PATTERN_LENGTH": 100}
+HARDEN_HEAP_BYTES = 64 * 1024 * 1024
+
+
+def apply_hardening(con: sqlite3.Connection) -> list[str]:
+    """Tighten SQLite's own resource limits for untrusted data. Returns the limits applied.
+    Connection.setlimit and the SQLITE_LIMIT_* constants exist from Python 3.11; older versions skip them."""
+    applied = []
+    if hasattr(con, "setlimit"):
+        for name, value in HARDEN_LIMITS.items():
+            const = getattr(sqlite3, f"SQLITE_LIMIT_{name}", None)
+            if const is not None:
+                con.setlimit(const, value)
+                applied.append(name)
+    con.execute(f"PRAGMA soft_heap_limit = {HARDEN_HEAP_BYTES}")   # must run before the authorizer is installed
+    applied.append("soft_heap_limit")
+    return applied
+
+
+def connect_readonly(db_path: str | Path, allowed_tables: set[str], harden: bool = False) -> sqlite3.Connection:
     con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, check_same_thread=False)
     con.execute("PRAGMA query_only = ON")
+    if harden:
+        apply_hardening(con)
     allowed = {t.lower() for t in allowed_tables}
     real = {r[0].lower() for r in con.execute("SELECT name FROM sqlite_master WHERE type IN ('table','view')")}
     con.set_authorizer(_make_authorizer((real | _SYSTEM_TABLES) - allowed))
@@ -55,13 +76,14 @@ def connect_readonly(db_path: str | Path, allowed_tables: set[str]) -> sqlite3.C
 
 
 def execute_safe(db_path: str | Path, sql: str, allowed_tables: set[str],
-                 timeout_s: float = DEFAULT_TIMEOUT_S, row_limit: int = DEFAULT_ROW_LIMIT) -> ExecResult:
+                 timeout_s: float = DEFAULT_TIMEOUT_S, row_limit: int = DEFAULT_ROW_LIMIT,
+                 harden: bool = False) -> ExecResult:
     """Validate then execute. Never raises for bad SQL; returns ExecResult with code/error."""
     v: ValidationResult = validate_sql(sql, allowed_tables)
     if not v.ok:
         return ExecResult(False, error=v.error, code=v.code)
 
-    con = connect_readonly(db_path, allowed_tables)
+    con = connect_readonly(db_path, allowed_tables, harden=harden)
     deadline = time.monotonic() + timeout_s
     con.set_progress_handler(lambda: 1 if time.monotonic() > deadline else 0, _PROGRESS_OPS)
     t0 = time.perf_counter()

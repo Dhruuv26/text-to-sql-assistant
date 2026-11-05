@@ -60,7 +60,7 @@ def classify_failure(pred_sql: str, gold_sql: str, pred_exec, gold_exec) -> str:
             return "timeout"
         if code == "parse_error" or "syntax error" in msg:
             return "syntax_error"
-        if code in ("not_select", "forbidden_statement", "forbidden_function", "multiple_statements", "too_long", "empty"):
+        if code in ("not_select", "forbidden_statement", "forbidden_function", "multiple_statements", "too_long", "too_complex", "empty"):
             return "guardrail_blocked"
         if code == "forbidden_table":
             return "hallucinated_table"

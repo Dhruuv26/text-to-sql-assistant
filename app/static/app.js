@@ -18,6 +18,7 @@
     db_error: "The database rejected the SQL the model wrote. Try rephrasing, and name tables or columns the way the list on the right does.",
     timeout: "The query ran longer than the time limit and was stopped. Ask for a narrower result.",
     empty: "The model returned no SQL. Try rephrasing the question.",
+    too_complex: "The SQL the model wrote was too deeply nested to check safely. Try a simpler question.",
     read_only: "Nothing was run. This assistant only reads data.",
   };
   const WARNINGS = {
@@ -26,7 +27,7 @@
     no_data_source: ["This query does not read any table, so the text it shows was written by the model, not taken from the database.",
       "Treat it as unverified, and especially do not read it as confirmation that anything was changed."],
   };
-  const BLOCKED = new Set(["read_only", "not_select", "multiple_statements", "forbidden_table", "forbidden_function", "parse_error", "empty", "too_long", "forbidden_statement"]);
+  const BLOCKED = new Set(["read_only", "not_select", "multiple_statements", "forbidden_table", "forbidden_function", "parse_error", "empty", "too_long", "too_complex", "forbidden_statement"]);
 
   let busy = false;
 

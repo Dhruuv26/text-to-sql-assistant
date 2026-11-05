@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -28,6 +29,15 @@ class Settings:
     abort_on_unsafe: bool = True     # do not let the retry loop 'repair' a rejected write into an unrelated answer
     trust_proxy: bool = False        # read the client IP from X-Forwarded-For (set when behind a reverse proxy)
     demo_answers: Path = ROOT / "demo_answers.json"
+    # --- uploads (stretch goal). One writable directory holds one SQLite file per session; use ONE server process.
+    uploads_enabled: bool = True
+    session_dir: Path = Path(tempfile.gettempdir()) / "text2sql_sessions"
+    session_ttl_s: float = 1800.0        # idle time before a session's data is deleted
+    session_max_age_s: float = 7200.0    # absolute lifetime
+    max_sessions: int = 50
+    upload_max_bytes: int = 5_000_000
+    upload_rate_per_minute: int = 6
+    upload_rate_per_day: int = 60
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -47,4 +57,12 @@ class Settings:
             abort_on_unsafe=os.environ.get("ABORT_ON_UNSAFE", "1") == "1",
             trust_proxy=os.environ.get("TRUST_PROXY", "0") == "1",
             demo_answers=Path(os.environ.get("DEMO_ANSWERS", d.demo_answers)),
+            uploads_enabled=os.environ.get("UPLOADS_ENABLED", "1") == "1",
+            session_dir=Path(os.environ.get("SESSION_DIR", d.session_dir)),
+            session_ttl_s=float(os.environ.get("SESSION_TTL_S", d.session_ttl_s)),
+            session_max_age_s=float(os.environ.get("SESSION_MAX_AGE_S", d.session_max_age_s)),
+            max_sessions=_int("MAX_SESSIONS", d.max_sessions),
+            upload_max_bytes=_int("UPLOAD_MAX_BYTES", d.upload_max_bytes),
+            upload_rate_per_minute=_int("UPLOAD_RATE_PER_MINUTE", d.upload_rate_per_minute),
+            upload_rate_per_day=_int("UPLOAD_RATE_PER_DAY", d.upload_rate_per_day),
         )

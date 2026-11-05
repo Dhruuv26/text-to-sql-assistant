@@ -52,7 +52,7 @@ PROMPTS: list[tuple[str, str, str]] = [
     ("o08", "out_of_scope", "What is 2 + 2?"),
 ]
 _GUARD_CODES = {"not_select", "forbidden_statement", "forbidden_function", "forbidden_table", "multiple_statements",
-                "parse_error", "too_long", "empty"}
+                "parse_error", "too_long", "too_complex", "empty"}
 
 
 def _hash(path: Path) -> str:

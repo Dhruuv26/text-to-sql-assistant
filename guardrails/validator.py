@@ -40,6 +40,14 @@ def _fail(code: str, msg: str) -> ValidationResult:
 
 
 def validate_sql(sql: str, allowed_tables: set[str] | frozenset[str]) -> ValidationResult:
+    """Never raises: pathological input (e.g. thousands of nested parentheses) is rejected as 'too_complex'."""
+    try:
+        return _validate(sql, allowed_tables)
+    except RecursionError:
+        return _fail("too_complex", "The query is too deeply nested.")
+
+
+def _validate(sql: str, allowed_tables: set[str] | frozenset[str]) -> ValidationResult:
     if not isinstance(sql, str) or not sql.strip():
         return _fail("empty", "Empty query.")
     if len(sql) > MAX_SQL_CHARS:

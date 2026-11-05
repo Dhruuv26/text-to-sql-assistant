@@ -5,6 +5,7 @@ import json
 import logging
 import threading
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
@@ -25,6 +26,7 @@ from .llm import OllamaClient
 from .pipeline import Text2SQL
 from .ratelimit import RateLimiter
 from .sqlnorm import constant_text_only, fingerprint
+from .upload_api import UPLOAD_PATH, BodyLimit, build_store, register_upload_routes
 
 log = logging.getLogger("text2sql")
 STATIC = Path(__file__).resolve().parent / "static"
@@ -98,7 +100,22 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
     demo_by_q = {_norm(d["question"]): d for d in demo}
     pool_by_sql = {fingerprint(sql): q for q, sql in POOL}      # to notice when the model copies a stored example
 
-    app = FastAPI(title="Text-to-SQL Assistant", docs_url="/api/docs", redoc_url=None, openapi_url="/api/openapi.json")
+    store = build_store(st) if st.uploads_enabled else None
+
+    @asynccontextmanager
+    async def lifespan(_app):
+        if store is not None:
+            store.start_sweeper()
+        try:
+            yield
+        finally:
+            if store is not None:
+                store.stop_sweeper()
+
+    app = FastAPI(title="Text-to-SQL Assistant", docs_url="/api/docs", redoc_url=None, openapi_url="/api/openapi.json",
+                  lifespan=lifespan)
+    if store is not None:                       # added before the header middleware so a 413 still gets the security headers
+        app.add_middleware(BodyLimit, path=UPLOAD_PATH, max_bytes=st.upload_max_bytes + 64 * 1024)
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
@@ -120,7 +137,7 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
     def health():
         ping = getattr(llm, "ping", None)
         return {"status": "ok", "model": st.model, "llm_ready": bool(ping()) if ping else True,
-                "examples_precomputed": len(demo)}
+                "examples_precomputed": len(demo), "uploads": store is not None}
 
     @app.get("/api/schema")
     def schema():
@@ -179,6 +196,9 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
         return JSONResponse(make_response(question=question, approach=approach, res=res, sql=sql, tables=tables, attempts=attempts,
                                           source=source, model=st.model, row_limit=st.row_limit, llm_ms=llm_ms, total_ms=total_ms,
                                           warnings=warnings))
+
+    if store is not None:
+        register_upload_routes(app, st, store, llm, slots, limiter, client_id, make_response, policy_response)
 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 

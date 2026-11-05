@@ -134,3 +134,14 @@ def test_schema_extraction_shape():
 def test_validator_reports_canonical_table_names():
     r = validate_sql("select * from aRtIsT join ALBUM on artist.artistid = album.artistid", TABLES)
     assert r.ok and r.tables == frozenset({"Artist", "Album"})
+
+
+@pytest.mark.parametrize("n", [500, 1200, 2400])
+def test_deeply_nested_sql_is_rejected_not_a_crash(n):
+    r = validate_sql("SELECT " + "(" * n + "1" + ")" * n, TABLES)
+    assert not r.ok and r.code in ("too_complex", "too_long")
+
+
+def test_executor_survives_deeply_nested_sql():
+    r = execute_safe(DEFAULT_DB, "SELECT " + "(" * 2400 + "1" + ")" * 2400, TABLES)
+    assert not r.ok and r.code == "too_complex"

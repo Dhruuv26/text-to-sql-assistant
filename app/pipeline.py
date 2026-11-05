@@ -29,6 +29,50 @@ N_VOTES = 5
 MAX_RETRIES = 2
 
 
+def retry_problem(res: ExecResult) -> str | None:
+    """Feedback message for a retry, or None if the result is acceptable."""
+    if not res.ok:
+        return {"timeout": "the query took too long; simplify it.",
+                "parse_error": f"it could not be parsed ({res.error}).",
+                }.get(res.code, f"it failed with: {res.error}")
+    if not res.rows:
+        return "it returned no rows. Re-check the filters, joins and literal values against the schema notes."
+    return None
+
+
+def retry_loop(prompt, sql, res, raw, total_ms, all_cached, attempts, generate, run, abort_on_unsafe):
+    """Error-feedback retries shared by every pipeline (up to MAX_RETRIES, one extra try for an empty result).
+
+    A failed retry never replaces an executable answer, and after a rejected write / disallowed function the loop stops
+    (abort_on_unsafe) instead of 'repairing' it into an unrelated query. Mutates `attempts`.
+    """
+    best_ok = res if res.ok else None
+    best_sql = sql if res.ok else None
+    empty_retry_used = False
+    for _ in range(MAX_RETRIES):
+        if abort_on_unsafe and res.code in UNSAFE_CODES:
+            break
+        problem = retry_problem(res)
+        if problem is None:
+            break
+        if res.ok:                                    # only the empty-result case reaches here
+            if empty_retry_used:
+                break
+            empty_retry_used = True
+        resp, new_sql = generate(correction_prompt(prompt, sql, problem))
+        total_ms += resp.latency_ms
+        all_cached = all_cached and resp.cached
+        attempts.append(new_sql)
+        sql, res, raw = new_sql, run(new_sql), resp.text
+        if res.ok and res.rows:
+            break
+        if res.ok:
+            best_ok, best_sql = res, sql
+    if not (res.ok and res.rows) and best_ok is not None and not res.ok:
+        res, sql = best_ok, best_sql                  # a failed retry must not replace an executable answer
+    return sql, res, raw, total_ms, all_cached
+
+
 @dataclass
 class PipelineResult:
     question: str
@@ -71,17 +115,6 @@ class Text2SQL:
     def _generate(self, prompt: str):
         resp = self.llm.generate(prompt, SYSTEM)
         return resp, extract_sql(resp.text)
-
-    @staticmethod
-    def _problem(res: ExecResult) -> str | None:
-        """Feedback message for a retry, or None if the result is acceptable."""
-        if not res.ok:
-            return {"timeout": "the query took too long; simplify it.",
-                    "parse_error": f"it could not be parsed ({res.error}).",
-                    }.get(res.code, f"it failed with: {res.error}")
-        if not res.rows:
-            return "it returned no rows. Re-check the filters, joins and literal values against the schema notes."
-        return None
 
     @staticmethod
     def _result_key(sql: str, res: ExecResult):
@@ -135,28 +168,6 @@ class Text2SQL:
         total_ms, all_cached, attempts, raw = resp.latency_ms, resp.cached, [sql], resp.text
 
         if approach == "self_correct":
-            best_ok = res if res.ok else None            # remember last executable (even if empty) answer
-            best_sql = sql if res.ok else None
-            empty_retry_used = False
-            for _ in range(MAX_RETRIES):
-                if self.abort_on_unsafe and res.code in UNSAFE_CODES:
-                    break
-                problem = self._problem(res)
-                if problem is None:
-                    break
-                if res.ok:                                # only the empty-result case reaches here
-                    if empty_retry_used:
-                        break
-                    empty_retry_used = True
-                resp, new_sql = self._generate(correction_prompt(prompt, sql, problem))
-                total_ms += resp.latency_ms
-                all_cached = all_cached and resp.cached
-                attempts.append(new_sql)
-                sql, res, raw = new_sql, self._run(new_sql), resp.text
-                if res.ok and res.rows:
-                    break
-                if res.ok:
-                    best_ok, best_sql = res, sql
-            if not (res.ok and res.rows) and best_ok is not None and not res.ok:
-                res, sql = best_ok, best_sql             # a failed retry must not replace an executable answer
+            sql, res, raw, total_ms, all_cached = retry_loop(
+                prompt, sql, res, raw, total_ms, all_cached, attempts, self._generate, self._run, self.abort_on_unsafe)
         return PipelineResult(question, approach, raw, sql, res, total_ms, all_cached, attempts)
