@@ -17,6 +17,25 @@
     </header>
 
     <main>
+      <section id="source" class="source" aria-labelledby="source-h" hidden>
+        <h2 id="source-h">What do you want to ask about?</h2>
+        <div class="choice" role="radiogroup" aria-labelledby="source-h">
+          <label><input type="radio" name="source" value="sample" checked> The sample music database</label>
+          <label><input type="radio" name="source" value="upload"> My own CSV or Excel file</label>
+        </div>
+        <div id="upload-panel" hidden>
+          <p id="privacy" class="muted"></p>
+          <div class="upload-row">
+            <label for="file">File (.csv, .tsv or .xlsx)</label>
+            <input type="file" id="file" accept=".csv,.tsv,.xlsx">
+            <button type="button" id="upload-btn">Upload</button>
+            <button type="button" id="remove-btn" class="linkish" hidden>Remove my data</button>
+          </div>
+          <p id="upload-status" class="status" role="status"></p>
+          <ul id="upload-warnings" class="notes"></ul>
+        </div>
+      </section>
+
       <form id="ask-form" class="ask" autocomplete="off">
         <label for="question">Your question</label>
         <textarea id="question" name="question" rows="2" maxlength="400" required
@@ -36,7 +55,7 @@
           </details>
           <span id="status" class="status" role="status"></span>
         </div>
-        <div class="examples">
+        <div id="examples-wrap" class="examples">
           <p id="examples-h">Or start from an example</p>
           <ul id="examples" aria-labelledby="examples-h"></ul>
         </div>
@@ -51,7 +70,7 @@
 
     <aside class="schema" aria-labelledby="schema-h">
       <h2 id="schema-h">What is in the database</h2>
-      <p class="muted">A digital music store: artists, albums and tracks, plus the customers, employees and invoices behind the sales. Open a table to see its columns.</p>
+      <p id="schema-desc" class="muted">A digital music store: artists, albums and tracks, plus the customers, employees and invoices behind the sales. Open a table to see its columns.</p>
       <div id="schema"></div>
     </aside>
 

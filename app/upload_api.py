@@ -116,7 +116,8 @@ def session_payload(store: SessionStore, s: Session, warnings: list[str] | None 
         return {"name": t.name, "label": t.label, "rows": t.rows, "columns": [col(c) for c in t.columns]}
 
     return {"active": True, "tables": [tbl(t) for t in s.tables], "warnings": list(warnings or []),
-            "seconds_left": store.seconds_left(s), "uploads": s.uploads, "max_uploads": store.max_uploads,
+            "seconds_left": store.seconds_left(s), "ttl_s": int(store.ttl_s), "max_age_s": int(store.max_age_s),
+            "uploads": s.uploads, "max_uploads": store.max_uploads,
             "max_tables": store.max_tables, "limits": {"max_bytes": store.limits.max_bytes, "max_rows": store.limits.max_rows,
                                                        "max_cols": store.limits.max_cols}}
 
@@ -177,7 +178,8 @@ def register_upload_routes(app: FastAPI, st: Settings, store: SessionStore, llm,
         s = store.get(request.cookies.get(COOKIE), touch=False)     # polling must not keep the data alive
         if s is None or not s.tables:
             return {"active": False, "limits": {"max_bytes": store.limits.max_bytes, "max_rows": store.limits.max_rows,
-                                                "max_cols": store.limits.max_cols}, "ttl_s": int(store.ttl_s)}
+                                                "max_cols": store.limits.max_cols}, "ttl_s": int(store.ttl_s),
+                    "max_age_s": int(store.max_age_s)}
         return session_payload(store, s)
 
     @app.delete("/api/session")

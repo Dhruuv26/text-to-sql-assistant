@@ -149,17 +149,172 @@
     box.append(p);
   }
 
+  // ---- uploads: live mode only (the replay site hides this panel and never calls these routes)
+  let source = "sample";                                   // "sample" | "upload"
+  let session = null;                                      // last active /api/session payload
+  let sessionInfo = { limits: null, ttl_s: 1800, max_age_s: 7200 };
+  let sampleSchema = [];
+  let uploading = false;
+  const sampleApproaches = [...$("approach").options].map((o) => [o.value, o.textContent]);
+  const SAMPLE_PLACEHOLDER = $("question").placeholder;
+  const SAMPLE_DESC = $("schema-desc").textContent;
+  const UPLOAD_APPROACHES = [["", "Default (recommended)"], ["plain", "Column names and types only"],
+    ["profiled", "Adds missing-value counts, ranges and categories"]];
+
+  function renderSidebar() {
+    const root = $("schema");
+    root.replaceChildren();
+    if (source === "upload") {
+      $("schema-h").textContent = "What is in your file";
+      if (!session) {
+        $("schema-desc").textContent = "Upload a file and its tables will be listed here.";
+        return;
+      }
+      $("schema-desc").textContent = "Column names were tidied so they work in SQL (for example \"Total Revenue ($)\" becomes total_revenue_usd). " +
+        "Empty cells, N/A and similar become missing values. Open a table to see its columns.";
+      session.tables.forEach((t) => {
+        const d = el("details");
+        d.open = session.tables.length === 1;
+        const s = el("summary");
+        s.append(el("span", "", t.name), el("span", "count", `${fmt.format(t.rows)} rows`));
+        const ul = el("ul");
+        t.columns.forEach((c) => {
+          const li = el("li", "", c.name);
+          li.append(el("span", "", " " + c.type.toLowerCase() + (c.nulls ? `, ${fmt.format(c.nulls)} missing` : "")));
+          if (c.label && c.label !== c.name) li.title = "Original header: " + c.label;
+          ul.append(li);
+        });
+        d.append(s, ul);
+        root.append(d);
+      });
+      return;
+    }
+    $("schema-h").textContent = "What is in the database";
+    $("schema-desc").textContent = SAMPLE_DESC;
+    sampleSchema.forEach((t) => {
+      const d = el("details");
+      const s = el("summary");
+      s.append(el("span", "", t.table), el("span", "count", `${fmt.format(t.rows)} rows`));
+      const ul = el("ul");
+      t.columns.forEach((c) => {
+        const li = el("li", "", c.name + (c.pk ? " (key)" : ""));
+        li.append(el("span", "", " " + c.type.toLowerCase()));
+        ul.append(li);
+      });
+      t.foreign_keys.forEach((f) => ul.append(el("li", "", `links: ${f}`)));
+      d.append(s, ul);
+      root.append(d);
+    });
+  }
+
+  function renderPrivacy() {
+    const lim = sessionInfo.limits || {};
+    const mins = Math.round(sessionInfo.ttl_s / 60);
+    const hours = Math.round((sessionInfo.max_age_s / 3600) * 10) / 10;
+    let t = "Your file is sent to this server and read by the language model running on the same machine. It is kept in a private session, " +
+      `deleted after ${mins} minutes without use (never kept longer than ${hours} ${hours === 1 ? "hour" : "hours"}), and deleted at once when you press Remove my data.`;
+    if (lim.max_bytes) t += ` Limits: ${Math.round(lim.max_bytes / 1e6)} MB, ${fmt.format(lim.max_rows)} rows, ${lim.max_cols} columns.`;
+    t += " Do not upload anything confidential.";
+    if (session) t += ` About ${Math.max(1, Math.round(session.seconds_left / 60))} minutes left in this session.`;
+    $("privacy").textContent = t;
+  }
+
+  function applySession(d) {
+    if (d && typeof d.ttl_s === "number") sessionInfo = { limits: d.limits || sessionInfo.limits, ttl_s: d.ttl_s, max_age_s: d.max_age_s || sessionInfo.max_age_s };
+    session = d && d.active ? d : null;
+    $("remove-btn").hidden = !session;
+    renderPrivacy();
+    renderSidebar();
+  }
+
+  async function refreshSession() {
+    const r = await api("/api/session");
+    if (r.ok) applySession(r.data);
+    return r;
+  }
+
+  function setSource(next) {
+    source = next;
+    document.querySelectorAll('input[name="source"]').forEach((r) => { r.checked = r.value === next; });
+    $("upload-panel").hidden = next !== "upload";
+    $("examples-wrap").hidden = next === "upload";
+    $("question").placeholder = next === "upload" ? "Which category has the highest total?" : SAMPLE_PLACEHOLDER;
+    const sel = $("approach");
+    sel.replaceChildren();
+    (next === "upload" ? UPLOAD_APPROACHES : sampleApproaches).forEach(([v, t]) => {
+      const o = el("option", "", t);
+      o.value = v;
+      sel.append(o);
+    });
+    $("answer").replaceChildren();
+    renderSidebar();
+  }
+
+  function uploadStatus(msg, isError) {
+    const s = $("upload-status");
+    s.textContent = msg;
+    s.classList.toggle("error", !!isError);
+  }
+
+  async function upload() {
+    if (uploading) return;
+    const file = $("file").files && $("file").files[0];
+    if (!file) return uploadStatus("Choose a file first.", true);
+    const max = sessionInfo.limits && sessionInfo.limits.max_bytes;
+    if (max && file.size > max) return uploadStatus(`That file is ${(file.size / 1e6).toFixed(1)} MB; the limit is ${Math.round(max / 1e6)} MB.`, true);
+    uploading = true;
+    $("upload-btn").disabled = true;
+    uploadStatus("Uploading and reading the file.");
+    try {
+      const r = await api("/api/upload?filename=" + encodeURIComponent(file.name), { method: "POST", body: file });
+      if (r.ok) {
+        applySession(r.data);
+        $("upload-warnings").replaceChildren(...(r.data.warnings || []).map((w) => el("li", "", w)));
+        $("file").value = "";
+        uploadStatus("Ready. Ask a question about your data.");
+      } else if (r.status === 429) {
+        uploadStatus(((r.data && r.data.detail) || "Too many uploads.") + (r.retry ? ` Try again in ${r.retry} seconds.` : ""), true);
+      } else {
+        uploadStatus((r.data && r.data.detail) || "The file could not be uploaded.", true);
+      }
+    } catch (_) {
+      uploadStatus("Could not reach the server. Check your connection and try again.", true);
+    } finally {
+      uploading = false;
+      $("upload-btn").disabled = false;
+    }
+  }
+
+  async function removeData() {
+    const r = await api("/api/session", { method: "DELETE" });
+    if (r.ok) {
+      applySession({ active: false });
+      $("upload-warnings").replaceChildren();
+      $("answer").replaceChildren();
+      uploadStatus("Your data was removed.");
+    } else {
+      uploadStatus("Could not remove your data. It is deleted automatically when the session expires.", true);
+    }
+  }
+
   async function ask(question) {
     if (busy || question.trim().length < 3) return;
+    const mine = source === "upload";
+    if (mine && !session) { renderProblem("Upload a file first, then ask a question about it."); return; }
     busy = true;
     $("submit").disabled = true;
     $("submit").textContent = "Asking";
     $("status").textContent = "Writing the SQL. The first question after a quiet period can take a few seconds.";
     const approach = $("approach").value || null;
     try {
-      const r = await api("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, approach }) });
-      if (r.ok) renderAnswer(r.data);
-      else if (r.status === 429) renderProblem(`You have reached the request limit. Try again in ${r.retry || "a few"} seconds.`);
+      const r = await api(mine ? "/api/session/ask" : "/api/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, approach }) });
+      if (r.ok) {
+        renderAnswer(r.data);
+        if (mine) refreshSession().catch(() => {});
+      } else if (mine && (r.status === 404 || r.status === 410)) {
+        renderProblem("Your uploaded data is gone (it expired or was removed). Upload the file again.");
+        applySession({ active: false });
+      } else if (r.status === 429) renderProblem(`You have reached the request limit. Try again in ${r.retry || "a few"} seconds.`);
       else if (r.status === 422) renderProblem("That question could not be read. Use between 3 and 400 characters.");
       else renderProblem((r.data && r.data.detail) || "The service could not answer. Try again in a moment.");
     } catch (_) {
@@ -191,21 +346,17 @@
       });
     }
     if (sc.ok) {
-      const root = $("schema");
-      sc.data.forEach((t) => {
-        const d = el("details");
-        const s = el("summary");
-        s.append(el("span", "", t.table), el("span", "count", `${fmt.format(t.rows)} rows`));
-        const ul = el("ul");
-        t.columns.forEach((c) => {
-          const li = el("li", "", c.name + (c.pk ? " (key)" : ""));
-          li.append(el("span", "", " " + c.type.toLowerCase()));
-          ul.append(li);
-        });
-        t.foreign_keys.forEach((f) => ul.append(el("li", "", `links: ${f}`)));
-        d.append(s, ul);
-        root.append(d);
-      });
+      sampleSchema = sc.data;
+      renderSidebar();
+    }
+    if (!STATIC && hl.ok && hl.data && hl.data.uploads) {
+      $("source").hidden = false;
+      document.querySelectorAll('input[name="source"]').forEach((r) => r.addEventListener("change", () => { if (r.checked) setSource(r.value); }));
+      $("upload-btn").addEventListener("click", upload);
+      $("remove-btn").addEventListener("click", removeData);
+      renderPrivacy();
+      await refreshSession();                          // a reload keeps working while the session is alive
+      if (session) setSource("upload");
     }
     if (STATIC) {
       const bl = await api("/api/blocked");

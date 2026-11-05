@@ -46,7 +46,10 @@ def test_upload_then_status_then_ask_then_delete(tmp_path):
     assert t["columns"][2]["nulls"] == 2                             # "N/A" and "" both stored as NULL
 
     s = c.get("/api/session").json()
-    assert s["active"] and s["tables"][0]["name"] == "sales"
+    assert s["active"] and s["tables"][0]["name"] == "sales" and s["ttl_s"] == 1800 and s["max_age_s"] == 7200
+    inactive = TestClient(c.app).get("/api/session").json()
+    assert inactive["active"] is False and inactive["ttl_s"] == 1800 and inactive["max_age_s"] == 7200
+    assert inactive["limits"]["max_bytes"] == 5_000_000
 
     a = c.post("/api/session/ask", json={"question": "Total revenue by region?"}).json()
     assert a["ok"] and a["source"] == "upload" and a["tables"] == ["sales"]
