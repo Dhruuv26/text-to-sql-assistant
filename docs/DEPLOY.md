@@ -56,6 +56,19 @@ Or with Docker: `docker compose up --build` (starts Ollama, pulls the model, ser
 | `MAX_CONCURRENT` / `QUEUE_WAIT_S` | 1 / 25 | Simultaneous model calls; seconds a request waits for a slot before a 503 |
 | `ROW_LIMIT` / `QUERY_TIMEOUT_S` | 200 / 5 | Result cap; SQL time limit |
 | `TRUST_PROXY` | 0 | Set to 1 behind a reverse proxy so the rate limiter sees the real client IP |
+| `UPLOADS_ENABLED` | 1 | Set to 0 to switch CSV/Excel upload off entirely (routes are not registered) |
+| `SESSION_DIR` | system temp dir, `text2sql_sessions` | Writable directory for per-session SQLite files. **Use a dedicated directory.** Only files named like session ids are ever deleted at startup |
+| `SESSION_TTL_S` / `SESSION_MAX_AGE_S` | 1800 / 7200 | Delete data after this much idle time / this long in total |
+| `MAX_SESSIONS` | 50 | Concurrent upload sessions (when full, a new visitor's first upload gets a 503; existing sessions keep working) |
+| `UPLOAD_MAX_BYTES` | 5000000 | Largest accepted file; row, column and sheet limits are in `app/ingest.py` |
+| `UPLOAD_RATE_PER_MINUTE` / `UPLOAD_RATE_PER_DAY` | 6 / 60 | Per-IP upload limits |
+
+## Uploads (live mode only)
+
+* **One server process.** Sessions, rate limits and the model queue live in memory, and startup deletes leftover session files. Do not run `uvicorn --workers N` or two containers on the same `SESSION_DIR`: they would delete each other's data.
+* **`SESSION_DIR` must be writable** by the user the app runs as (`docker run --read-only` needs a `tmpfs` or volume there). Files are removed after the idle timeout, on **Remove my data**, and at process start; they are lost on restart by design.
+* **Behind a reverse proxy:** set `TRUST_PROXY=1`, forward `X-Forwarded-Proto` (so the session cookie gets the `Secure` flag on https) and allow request bodies of at least `UPLOAD_MAX_BYTES` plus 64 KB (nginx: `client_max_body_size`).
+* **Privacy:** the uploaded file lives on the server's disk and is read by the model on the same machine. Say so wherever you publish it; the UI shows a note with the real limits. The replay site has no upload feature.
 
 ## Security notes
 The service accepts only free text; model output is never executed without the parser check, the database file is opened read-only, responses carry a strict content-security policy, and the logs record approach, outcome and timing but not question text. There is no authentication; the rate limiter is in memory and per process, which is adequate for a small demo, not for production. The replay site has no server at all.

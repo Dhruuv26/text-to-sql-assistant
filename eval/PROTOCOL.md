@@ -59,3 +59,14 @@ not be presented as findings.
 **What this can and cannot show.** It can show whether the profiled schema helps on a small sample of public messy files, with these two small
 models. It cannot show generalisation to arbitrary uploads, to bigger models, or to files whose columns are described in other languages.
 The questions and prompts were written by the same author (and Claude), so some unconscious fit between them is possible.
+
+## Post-run notes for the CSV benchmark (added after the runs; the questions, prompts and results were not changed)
+
+Results are in `docs/CSV_RESULTS.md`. Against the hypotheses above:
+
+- **H5** (profiled beats plain): supported for 7B (64/80 to 75/80; 12 fixed, 1 broken; exact McNemar p = 0.0034, below the 0.025 threshold for two primary tests). For 3B the direction matches (63/80 to 70/80; 9 vs 2) but p = 0.065, not significant.
+- **H6** (gain concentrated in `null` and `text_values`): partly. `text_values` improved most (2/8 to 6/8 for 3B and 7/8 for 7B). `null` showed no gain (plain already 9/10 over both models); the one plain miss was `eye = 'null'` where the value is a real NULL. Reading the 12 questions the 7B profile fixed, 9 involved exact stored values or the column that holds them. That reading is my judgement, from the SQL.
+- **H7** (retry adds little): confirmed, with identical per-question outcomes for `profiled` and `profiled_retry`. This is not an independent replication: `profiled_retry` reuses the same first answer and only differs where a retry fires (once, for 3B, and it stayed wrong).
+- **H8** (7B beats 3B within each approach): not supported at p < 0.05. plain: 3 vs 2 discordant (p = 1.0); profiled and profiled_retry: 5 vs 0 (p = 0.0625). The report omitted this test at first; it was added without re-running any model.
+
+**Known flaws, left unedited by the freeze.** `candy_data-09` ("Which three candies without chocolate have the highest win percentage?") and `dc_wikia_data-10` ("... which hair color is most common among female characters?") return a metric column in the gold answer that the question does not ask for, so a literally correct answer without it is scored wrong (the 7B profile run answered `dc_wikia_data-10` with the hair colour only). `candy_data-09` was one of the 12 fixed questions. Sensitivity for 7B without both questions: plain 64/78, profiled 74/78, 11 fixed vs 1 broken, p = 0.0063. The 3B sensitivity was not computed. Any rewrite of these questions belongs in a new version of the benchmark, not in this one.

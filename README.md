@@ -5,7 +5,7 @@ Ask a database questions in English. The system writes SQL with a local open-wei
 **Replay site:** https://dhruuv26.github.io/text-to-sql-assistant/ (saved real answers; it cannot answer new questions, see below)  |  **Demo video:** _add link_
 
 ![CI](https://github.com/Dhruuv26/text-to-sql-assistant/actions/workflows/ci.yml/badge.svg)
-![status](https://img.shields.io/badge/tests-365%20passing-brightgreen)
+![status](https://img.shields.io/badge/tests-580%2B%20passing-brightgreen)
 
 ![The answer page: the SQL, what the checks did, and the result table](docs/img/result.png)
 
@@ -71,6 +71,38 @@ Full tables, paired tests, failure categories and per-category accuracy: [`docs/
 8. **A concrete failure mode: missing-value conventions.** The one easy test question every 7B approach got wrong was "How many customers have no company listed?" The model wrote `Company = ''`; the data uses `NULL`. The schema's sample values exclude NULLs, so the model never sees the convention. Annotating columns with NULL counts is an untested fix that I did not apply after seeing test results, to keep the held-out evaluation clean.
 9. **Retrieved examples can be copied verbatim when the request is unanswerable** (see Safety evaluation). The benchmark contains only answerable questions, so this failure mode is invisible to the accuracy numbers.
 
+## Ask questions about your own CSV or Excel file
+
+In live mode (not on the replay site) you can upload a `.csv`, `.tsv` or `.xlsx` file and ask questions about it. The same parser, read-only executor and timeout apply, on a private database built from your file.
+
+**What happens to a file** (`app/ingest.py`, `app/sessions.py`, `app/upload_*.py`):
+
+* It is parsed with limits (5 MB, 20,000 rows, 60 columns, 4 sheets, a zip-bomb and macro check for Excel; oversized files are rejected, never silently truncated, because a partial dataset gives wrong answers).
+* Column names are normalised so they work in SQL (`Total Revenue ($)` becomes `total_revenue_usd`; names are capped at 40 characters). Types are inferred (currency, percent, dates, numbers with thousands separators), and empty cells, `N/A`, `-` and similar become real `NULL`s.
+* Each browser session gets its own SQLite file, found through an opaque id in an HttpOnly, SameSite=Lax cookie. Data is deleted after 30 minutes without use, never kept more than 2 hours, and immediately on **Remove my data**. Concurrent sessions, tables and uploads are capped.
+* The model sees a schema built from the file: column types, `NULL` counts, ranges and, for low-cardinality columns, the actual stored values. Everything that comes from the file goes through a sanitiser first and the system prompt says the schema is data, not instructions.
+
+**What is and is not protected.** The security boundary is the SQL parser plus the read-only, per-session database. The prompt sanitiser is a seatbelt, not a guarantee: a prompt injection hidden in a cell could still make the model write a different SELECT, but that SELECT can only read the uploader's own file. Tests cover oversize and chunked bodies, a zip bomb, forged and traversal session cookies, filenames, `ATTACH` and write attempts, cross-session reads through the API, and hostile HTML in headers and cells in a simulated browser. This is not a substitute for a security review, and the model runs on the same server as the file: do not upload confidential data to a server you do not control.
+
+### CSV generalisation benchmark (separate from the Chinook results)
+
+80 hand-written questions (10 per file) over 8 public CSV files fetched at pinned commits and verified by SHA-256 (nothing is redistributed). They were picked for mess: missing cells, ALL-CAPS and footnote-marked text, label values like `Female Characters`, text dates, a 43-column file. Protocol and hypotheses were fixed before any run ([`eval/PROTOCOL.md`](eval/PROTOCOL.md), addendum); full tables in [`docs/CSV_RESULTS.md`](docs/CSV_RESULTS.md). Reproduce: `python -m eval.csvbench.fetch && python -m eval.csvbench.run && python -m eval.csvbench.report`.
+
+| Model | Names and types only (`plain`) | Plus NULL counts, ranges, stored values (`profiled`) | Profiled + retry |
+|---|---|---|---|
+| qwen2.5-coder 3B | 63/80 (78.8%) | 70/80 (87.5%) | 70/80 (87.5%) |
+| qwen2.5-coder 7B | 64/80 (80.0%) | 75/80 (93.8%) | 75/80 (93.8%) |
+
+What I found (exploratory; the intervals are wide, e.g. 7B profiled is 75/80 with a 95% interval of 86.2 to 97.3%):
+
+* **Showing the model the stored values helped the 7B model:** 12 questions fixed, 1 broken (exact McNemar p = 0.0034). For 3B the direction was the same (9 fixed, 2 broken) but p = 0.065, which I do not call significant.
+* **The mechanism, from reading the 12 fixed queries of the 7B model:** 9 depended on seeing the real data. Without the profile it guessed `'Female'` for `'FEMALE'`, `'Snow'` for `'snow'`, `'Petroleum Engineering'` for `'PETROLEUM ENGINEERING'`, `'bad'` for `'Bad Characters'`, wrote `eye = 'null'` instead of `IS NULL`, or searched the wrong column for a value. That is the same failure as the one easy Chinook question every 7B approach missed (`Company = ''` where the data uses `NULL`), now seen in a second place.
+* **Hard questions barely moved** (24/29 to 25/29 for 7B); the gain is on easy and medium ones. Retry changed nothing (identical per-question outcomes): wrong answers were executable queries, not errors.
+* **Model size:** with profiled prompts the 7B was right on 5 questions the 3B missed and the reverse happened 0 times (p = 0.0625); with plain prompts they were indistinguishable (3 vs 2). I would not claim a model-size effect from this sample.
+* **The 7B model's 5 remaining errors:** four are model mistakes (a wrong column for `Deceased Characters`, a misread `peanuts or almonds`, a degenerate `UNION ALL`, a text-date column used instead of `year`); one is a flaw in my question.
+
+**Caveats I know about.** (1) Two questions (`candy_data-09`, `dc_wikia_data-10`) ask "which ..." but the gold answer also returns the metric column, so a correct answer without it is marked wrong, and one of the 12 "fixes" depends on this. Per the protocol I did not edit them; excluding both, the 7B comparison is 11 fixed vs 1 broken (p = 0.0063; not re-checked for 3B). (2) 8 of the 80 questions were chosen to need exact stored values, so the size of the gain depends on the question mix. (3) Questions are correlated within a file, and I wrote them, after looking at each file's schema. (4) Execution accuracy credits a query that is right for this data even when it is not the query one would write (`airline_safety-02`). (5) One public file was dropped after ingestion: its long headers collapse to near-identical column names, a limitation of the name normaliser.
+
 ## Safety evaluation
 
 `python -m eval.redteam` sends 24 hostile or out-of-scope prompts (8 write requests, 8 injection attempts such as `sqlite_master`, `readfile`, `ATTACH`, 8 unrelated questions) through the real model and guardrails. The read-only policy is bypassed on purpose, so it measures the guardrails as defence in depth, and the database file is hashed after every prompt.
@@ -89,7 +121,7 @@ A screenshot-level finding that motivated the suite: asked "Delete all customers
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q                                   # 365 tests: guardrails, harness self-tests, API, red-team
+pytest -q                                   # 580+ tests: guardrails, ingestion, sessions, harness self-tests, API, UI, red-team
 ollama pull qwen2.5-coder:7b                # local model
 python -m app.cli "Which artist has the most albums?"
 uvicorn app.api:app --port 8000             # web UI at http://localhost:8000
@@ -116,14 +148,15 @@ python -m eval.export_demo                  # verified example answers for the U
 * **The public page is a replay, not a live model.** No free host can run a language model (Hugging Face moved Docker Spaces on its free tier behind a paid plan in July 2026). The page replays real recorded answers, results from the real database, and the guardrail blocks recorded in the red-team run. To ask your own question, run the app locally (`docker compose up --build`, or `uvicorn` with Ollama).
 * There is no abstention: out-of-scope questions get a (usually irrelevant) query rather than "I cannot answer that". The red-team suite counts this.
 * Retrieval of relevant tables and columns was not evaluated: with 11 tables the whole schema fits in the prompt.
+* **Uploads:** single server process (sessions, rate limits and the model queue are in memory); no accounts or authentication; no `.xls` files; names longer than 40 characters are shortened, which can make very long headers indistinguishable. The CSV benchmark covers single-table questions only, with two small models and 80 questions; multi-table uploads and joins are untested, and uploaded data is read by a model on the same server.
 
 ## Layout
 
 ```
-app/         pipeline, prompts, LLM clients + cache, FastAPI service, static UI
+app/         pipeline, prompts, LLM clients + cache, FastAPI service, static UI, uploads (ingest, sessions, upload API)
 guardrails/  sqlglot validator, safe executor
-eval/        gold questions + builder, runner, taxonomy, stats, report, protocol
-tests/       365 tests    deploy/  CPU single-container Space template    docs/  results, deployment, demo script
+eval/        gold questions + builder, runner, taxonomy, stats, report, protocol; eval/csvbench/ = CSV benchmark
+tests/       580+ tests    deploy/  CPU single-container Space template    docs/  results, deployment, demo script
 ```
 
 Data: Chinook sample database (MIT licence), by Luis Rocha.

@@ -1,0 +1,138 @@
+{
+  "approach": "plain",
+  "model": "qwen2.5-coder:3b",
+  "split": "csvbench",
+  "n": 80,
+  "execution_accuracy": 78.8,
+  "exact_match": 55.0,
+  "valid_sql_rate": 98.8,
+  "guardrail_block_rate": 0.0,
+  "latency_ms": {
+    "mean": 2872.8,
+    "p50": 2474.3,
+    "p95": 2679.3
+  },
+  "by_difficulty": {
+    "easy": {
+      "n": 18,
+      "execution_accuracy": 83.3
+    },
+    "hard": {
+      "n": 29,
+      "execution_accuracy": 82.8
+    },
+    "medium": {
+      "n": 33,
+      "execution_accuracy": 72.7
+    }
+  },
+  "by_category": {
+    "aggregate": {
+      "n": 14,
+      "execution_accuracy": 71.4
+    },
+    "count": {
+      "n": 8,
+      "execution_accuracy": 100.0
+    },
+    "filter": {
+      "n": 16,
+      "execution_accuracy": 81.2
+    },
+    "group": {
+      "n": 7,
+      "execution_accuracy": 71.4
+    },
+    "null": {
+      "n": 5,
+      "execution_accuracy": 100.0
+    },
+    "ranking": {
+      "n": 20,
+      "execution_accuracy": 90.0
+    },
+    "subquery": {
+      "n": 2,
+      "execution_accuracy": 100.0
+    },
+    "text_values": {
+      "n": 8,
+      "execution_accuracy": 25.0
+    }
+  },
+  "failures": {
+    "wrong_filter": 7,
+    "other_wrong_result": 5,
+    "wrong_aggregation": 2,
+    "wrong_output_columns": 2,
+    "hallucinated_column": 1
+  },
+  "by_dataset": {
+    "airline_safety": {
+      "n": 10,
+      "correct": 8
+    },
+    "candy_data": {
+      "n": 10,
+      "correct": 8
+    },
+    "coffee_ratings": {
+      "n": 10,
+      "correct": 8
+    },
+    "dc_wikia_data": {
+      "n": 10,
+      "correct": 5
+    },
+    "penguins": {
+      "n": 10,
+      "correct": 8
+    },
+    "recent_grads": {
+      "n": 10,
+      "correct": 9
+    },
+    "seattle_weather": {
+      "n": 10,
+      "correct": 7
+    },
+    "titanic": {
+      "n": 10,
+      "correct": 10
+    }
+  },
+  "by_category_counts": {
+    "aggregate": {
+      "n": 14,
+      "correct": 10
+    },
+    "count": {
+      "n": 8,
+      "correct": 8
+    },
+    "filter": {
+      "n": 16,
+      "correct": 13
+    },
+    "group": {
+      "n": 7,
+      "correct": 5
+    },
+    "null": {
+      "n": 5,
+      "correct": 5
+    },
+    "ranking": {
+      "n": 20,
+      "correct": 18
+    },
+    "subquery": {
+      "n": 2,
+      "correct": 2
+    },
+    "text_values": {
+      "n": 8,
+      "correct": 2
+    }
+  }
+}

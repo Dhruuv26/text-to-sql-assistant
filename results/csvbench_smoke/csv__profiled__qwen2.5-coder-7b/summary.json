@@ -1,0 +1,76 @@
+{
+  "approach": "profiled",
+  "model": "qwen2.5-coder:7b",
+  "split": "csvbench",
+  "n": 5,
+  "execution_accuracy": 100.0,
+  "exact_match": 80.0,
+  "valid_sql_rate": 100.0,
+  "guardrail_block_rate": 0.0,
+  "latency_ms": {
+    "mean": 4338.9,
+    "p50": 2672.4,
+    "p95": 9512.4
+  },
+  "by_difficulty": {
+    "easy": {
+      "n": 3,
+      "execution_accuracy": 100.0
+    },
+    "medium": {
+      "n": 2,
+      "execution_accuracy": 100.0
+    }
+  },
+  "by_category": {
+    "count": {
+      "n": 1,
+      "execution_accuracy": 100.0
+    },
+    "filter": {
+      "n": 1,
+      "execution_accuracy": 100.0
+    },
+    "group": {
+      "n": 1,
+      "execution_accuracy": 100.0
+    },
+    "null": {
+      "n": 1,
+      "execution_accuracy": 100.0
+    },
+    "ranking": {
+      "n": 1,
+      "execution_accuracy": 100.0
+    }
+  },
+  "failures": {},
+  "by_dataset": {
+    "penguins": {
+      "n": 5,
+      "correct": 5
+    }
+  },
+  "by_category_counts": {
+    "count": {
+      "n": 1,
+      "correct": 1
+    },
+    "filter": {
+      "n": 1,
+      "correct": 1
+    },
+    "group": {
+      "n": 1,
+      "correct": 1
+    },
+    "null": {
+      "n": 1,
+      "correct": 1
+    },
+    "ranking": {
+      "n": 1,
+      "correct": 1
+    }
+  }
+}

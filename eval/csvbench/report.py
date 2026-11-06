@@ -66,6 +66,14 @@ def render(runs: dict[tuple[str, str], list[dict]]) -> str:
             if ra:
                 c = _paired(ra, rb)
                 L.append(f"| {m} | {a} vs {b} | {c['only_a']} | {c['only_b']} | {c['p_value']} |")
+    if len(models) >= 2:      # H8 (pre-registered): larger model vs smaller model, same questions, within each approach
+        small, big = models[0], models[-1]
+        L += ["", f"## Model size, H8 (paired: {big} vs {small})", "",
+              "| Approach | A only right | B only right | p |", "|---|---|---|---|"]
+        for ap in ORDER:
+            if (small, ap) in runs and (big, ap) in runs:
+                c = _paired(runs[(big, ap)], runs[(small, ap)])
+                L.append(f"| {ap} | {c['only_a']} ({big.split(':')[-1]}) | {c['only_b']} ({small.split(':')[-1]}) | {c['p_value']} |")
     for title, field in (("By question category", "category"), ("By dataset", "dataset"), ("By difficulty", "difficulty")):
         keys = sorted({r[field] for recs in runs.values() for r in recs})
         L += ["", f"## {title} (correct/total)", "", "| " + field + " | " + " | ".join(f"{m.split(':')[-1]} {a}" for m in models for a in ORDER) + " |",

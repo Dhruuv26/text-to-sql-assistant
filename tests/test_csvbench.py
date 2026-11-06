@@ -185,8 +185,25 @@ def test_report_renders_tables_and_pairs(world, tmp_path):
             run.run_experiment(m, ap, questions=qs, prepared=prepared, llm=llm, results_root=root, verbose=False)
     md = report.render(report.load_runs(root))
     for needle in ("CSV generalisation benchmark", "exploratory", "| qwen2.5-coder:7b | profiled | 4/4 | 100.0%", "profiled vs plain",
-                   "both models pooled", "By question category", "By dataset", "Failure types"):
+                   "both models pooled", "By question category", "By dataset", "Failure types",
+                   "Model size, H8 (paired: qwen2.5-coder:7b vs qwen2.5-coder:3b)", "| profiled | 4 (7b) | 0 (3b) |"):
         assert needle in md, needle
+
+
+def test_show_failures_lists_fixed_broken_and_still_wrong(world, tmp_path, capsys):
+    from eval.csvbench import show_failures as sf
+    _, _, prepared = world
+    qs = _questions(prepared)
+    gold = {q["question"]: q["gold_sql"] for q in qs}
+    half = FakeLLM(lambda p: gold[" ".join(p.rsplit("Question:", 1)[-1].split("\n")[0].split())] if "total score" not in p.rsplit("Question:", 1)[-1] else "SELECT 5 FROM mini")
+    root = tmp_path / "r"
+    run.run_experiment("m", "plain", questions=qs, prepared=prepared, llm=FakeLLM("SELECT 5 FROM mini"), results_root=root, verbose=False)
+    run.run_experiment("m", "profiled", questions=qs, prepared=prepared, llm=half, results_root=root, verbose=False)
+    assert sf.main(["m", "profiled", "plain"], root) == 0
+    out = capsys.readouterr().out
+    assert "profiled RIGHT where plain was wrong (3)" in out and "profiled WRONG where plain was right (0)" in out and "wrong in both (1)" in out
+    assert sf.main(["m", "profiled"], root) == 0 and "profiled wrong (1)" in capsys.readouterr().out
+    assert sf.main(["m", "nope"], root) == 1 and sf.main([], root) == 2
 
 
 # ------------------------------------------------------------ real data (skipped unless fetched)
