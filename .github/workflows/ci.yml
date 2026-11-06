@@ -19,6 +19,8 @@ jobs:
         run: pytest -q
       - name: Gold set still valid against the database
         run: python -m eval.build_gold
+      - name: CSV benchmark gold reproduces against the pinned public files
+        run: python -m eval.csvbench.fetch && python -m eval.csvbench.build --check
 
   docker:
     needs: test

@@ -211,8 +211,8 @@ def register_upload_routes(app: FastAPI, st: Settings, store: SessionStore, llm,
             out = qa.ask(question, approach)
         except sqlite3.Error:
             raise HTTPException(410, "Your uploaded data has expired. Upload the file again.") from None
-        except RuntimeError:
-            log.warning("llm unreachable")
+        except RuntimeError as e:
+            log.warning("llm unreachable: %s", e)
             raise HTTPException(503, "The language model is not reachable right now.") from None
         finally:
             slots.release()

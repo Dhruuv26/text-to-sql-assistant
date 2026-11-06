@@ -1,0 +1,108 @@
+{
+ "note": "Files are not redistributed. They are fetched at run time from the original repositories at the pinned commit and verified by SHA-256. Check each source's own terms of use.",
+ "excluded": [
+  {
+   "file": "bad-drivers.csv",
+   "repo": "fivethirtyeight/data",
+   "reason": "Headers longer than 40 characters collapse to near-identical column names (..._fata, ..._fata_2, ...), so questions about them cannot be answered by any model. Reported as a limitation of normalize_name."
+  }
+ ],
+ "datasets": [
+  {
+   "id": "penguins",
+   "file": "penguins.csv",
+   "table": "penguins",
+   "repo": "mwaskom/seaborn-data",
+   "path": "penguins.csv",
+   "commit": "71e2436a092d714350de0fc409ca8a8714e7e78f",
+   "sha256": "e07636bd8af74260099ea2f8678e2eabbf35def579940cc76f67061ee16c06c1",
+   "bytes": 13478,
+   "url": "https://raw.githubusercontent.com/mwaskom/seaborn-data/71e2436a092d714350de0fc409ca8a8714e7e78f/penguins.csv",
+   "description": "Palmer penguins measurements (via seaborn-data)"
+  },
+  {
+   "id": "titanic",
+   "file": "titanic.csv",
+   "table": "titanic",
+   "repo": "datasciencedojo/datasets",
+   "path": "titanic.csv",
+   "commit": "f0ccab6a7ceafdff780052166fb6fab3311398eb",
+   "sha256": "4a437fde05fe5264e1701a7387ac6fb75393772ba38bb2c9c566405af5af4bd7",
+   "bytes": 60302,
+   "url": "https://raw.githubusercontent.com/datasciencedojo/datasets/f0ccab6a7ceafdff780052166fb6fab3311398eb/titanic.csv",
+   "description": "Titanic passengers: many missing ages and cabins"
+  },
+  {
+   "id": "seattle_weather",
+   "file": "seattle-weather.csv",
+   "table": "seattle_weather",
+   "repo": "vega/vega-datasets",
+   "path": "data/seattle-weather.csv",
+   "commit": "5448e25297c8f705be78e879d5423d55d04dc6f1",
+   "sha256": "0845078a290b48e3149ab8639966824110a251db4e06fc144c06ebb534af23be",
+   "bytes": 48219,
+   "url": "https://raw.githubusercontent.com/vega/vega-datasets/5448e25297c8f705be78e879d5423d55d04dc6f1/data/seattle-weather.csv",
+   "description": "Daily Seattle weather 2012-2015, ISO dates"
+  },
+  {
+   "id": "recent_grads",
+   "file": "recent-grads.csv",
+   "table": "recent_grads",
+   "repo": "fivethirtyeight/data",
+   "path": "college-majors/recent-grads.csv",
+   "commit": "4c1ff5e3aef1816ae04af63218015066e186c147",
+   "sha256": "754566bc1b3717e03d0da656971dacee733e45e2f6a30a902f8260cc536b0f37",
+   "bytes": 26872,
+   "url": "https://raw.githubusercontent.com/fivethirtyeight/data/4c1ff5e3aef1816ae04af63218015066e186c147/college-majors/recent-grads.csv",
+   "description": "FiveThirtyEight college majors: ALL-CAPS names, one row with missing values"
+  },
+  {
+   "id": "airline_safety",
+   "file": "airline-safety.csv",
+   "table": "airline_safety",
+   "repo": "fivethirtyeight/data",
+   "path": "airline-safety/airline-safety.csv",
+   "commit": "4c1ff5e3aef1816ae04af63218015066e186c147",
+   "sha256": "064300a3542fe4c3ee61aac54f55e95208a862eb11182c6ab48cc2618cbd58b3",
+   "bytes": 2265,
+   "url": "https://raw.githubusercontent.com/fivethirtyeight/data/4c1ff5e3aef1816ae04af63218015066e186c147/airline-safety/airline-safety.csv",
+   "description": "FiveThirtyEight airline safety: footnote asterisks in names"
+  },
+  {
+   "id": "candy_data",
+   "file": "candy-data.csv",
+   "table": "candy_data",
+   "repo": "fivethirtyeight/data",
+   "path": "candy-power-ranking/candy-data.csv",
+   "commit": "4c1ff5e3aef1816ae04af63218015066e186c147",
+   "sha256": "46c17cdb8c0212bc3e0cee2a9617a75d1ce642cd1559c332b1d9a2c4ed19b8cb",
+   "bytes": 5193,
+   "url": "https://raw.githubusercontent.com/fivethirtyeight/data/4c1ff5e3aef1816ae04af63218015066e186c147/candy-power-ranking/candy-data.csv",
+   "description": "FiveThirtyEight candy power ranking: 0/1 indicator columns"
+  },
+  {
+   "id": "dc_wikia_data",
+   "file": "dc-wikia-data.csv",
+   "table": "dc_wikia_data",
+   "repo": "fivethirtyeight/data",
+   "path": "comic-characters/dc-wikia-data.csv",
+   "commit": "4c1ff5e3aef1816ae04af63218015066e186c147",
+   "sha256": "a0d4823d79efd6bc12cc21d6e628e7027e179aabb480de85dfc3f59c14ee78a1",
+   "bytes": 1105600,
+   "url": "https://raw.githubusercontent.com/fivethirtyeight/data/4c1ff5e3aef1816ae04af63218015066e186c147/comic-characters/dc-wikia-data.csv",
+   "description": "DC characters: label values like 'Male Characters', many missing cells"
+  },
+  {
+   "id": "coffee_ratings",
+   "file": "coffee_ratings.csv",
+   "table": "coffee_ratings",
+   "repo": "rfordatascience/tidytuesday",
+   "path": "data/2020/2020-07-07/coffee_ratings.csv",
+   "commit": "f422450f6519830f6ce0312e5294e3cf110c72ed",
+   "sha256": "ae6fdd58f4a7f77397c11c2657e22be8aa8f746bdc5a74cf479e981bd3c25d5e",
+   "bytes": 603612,
+   "url": "https://raw.githubusercontent.com/rfordatascience/tidytuesday/f422450f6519830f6ce0312e5294e3cf110c72ed/data/2020/2020-07-07/coffee_ratings.csv",
+   "description": "Coffee quality ratings: 43 columns, text dates, mixed text and numbers"
+  }
+ ]
+}

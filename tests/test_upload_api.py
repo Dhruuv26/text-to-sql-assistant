@@ -224,12 +224,15 @@ def test_ask_rate_limit_and_length(tmp_path):
     assert c.post("/api/session/ask", json={"question": "How many rows?"}).status_code == 429
 
 
-def test_llm_down_is_503(tmp_path):
+def test_llm_down_is_503_and_the_real_reason_is_logged(tmp_path, caplog):
     def boom(_p):
-        raise RuntimeError("down")
+        raise RuntimeError("Cannot reach Ollama at http://x (HTTP Error 404: model not found)")
     c, _ = make(tmp_path, llm=FakeLLM(boom))
     up(c)
-    assert c.post("/api/session/ask", json={"question": "How many rows?"}).status_code == 503
+    with caplog.at_level("WARNING", logger="text2sql.upload"):
+        assert c.post("/api/session/ask", json={"question": "How many rows?"}).status_code == 503
+    assert "model not found" in caplog.text
+    assert "model not found" not in c.post("/api/session/ask", json={"question": "How many rows?"}).text   # never shown to the user
 
 
 def test_session_expiring_mid_request_is_410_not_500(tmp_path):

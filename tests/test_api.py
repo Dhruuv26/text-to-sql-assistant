@@ -194,3 +194,11 @@ def test_api_shows_the_blocked_statement_and_does_not_retry_it():
     d = client(llm).post("/api/ask", json={"question": "Show me the customer cleanup"}).json()
     assert not d["ok"] and d["code"] == "not_select" and "DELETE" in d["sql"] and d["attempts"] == 1 and llm.calls == 1
     assert d["warnings"] == []
+
+
+def test_llm_down_on_the_main_route_logs_the_real_reason(caplog):
+    def boom(_p):
+        raise RuntimeError("Cannot reach Ollama at http://x (timed out)")
+    with caplog.at_level("WARNING", logger="text2sql"):
+        r = client(FakeLLM(boom)).post("/api/ask", json={"question": "How many artists are there?"})
+    assert r.status_code == 503 and "timed out" in caplog.text and "timed out" not in r.text

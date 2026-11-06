@@ -175,8 +175,8 @@ def create_app(settings: Settings | None = None, llm=None) -> FastAPI:
                                     headers={"Retry-After": "10"})
             try:
                 out = t2s.ask(question, approach)
-            except RuntimeError:
-                log.warning("llm unreachable")
+            except RuntimeError as e:
+                log.warning("llm unreachable: %s", e)
                 msg = "The language model is not reachable right now."
                 if demo:
                     msg += " The example questions still work."
