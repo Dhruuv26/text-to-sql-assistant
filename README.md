@@ -2,7 +2,7 @@
 
 Ask a database questions in English. The system writes SQL with a local open-weight model, **checks it with a parser before it runs**, executes it on a read-only connection, and shows the SQL, the checks it passed, and the rows. The project's second half is an **evaluation harness** that measures how often the generated SQL is actually right, and a held-out experiment on what helps.
 
-**Replay site:** https://dhruuv26.github.io/text-to-sql-assistant/ (saved real answers; it cannot answer new questions, see below)  |  **Demo video:** _add link_
+**Replay site:** https://dhruuv26.github.io/text-to-sql-assistant/ (saved real answers; it cannot answer new questions, see below)
 
 ![CI](https://github.com/Dhruuv26/text-to-sql-assistant/actions/workflows/ci.yml/badge.svg)
 ![status](https://img.shields.io/badge/tests-580%2B%20passing-brightgreen)
